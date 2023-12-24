@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>数据导出</title>
+    <link rel="stylesheet" href="../static/element-ui.theme-chalk.index.css" />
+    <script src="../static/vue.js"></script>
+    <script src="../static/axios.min.js"></script>
+    <script src="../static/element.ui.index.js"></script>
+    <script src="../static/base64.min.js"></script>
+  </head>
+
+  <body>
+    <div id="app">
+      <div class="container">
+        <el-form :inline="true">
+          <el-form-item
+            label="数据项"
+            @dblclick.native="showAddItemDialog"
+            @mousedown.native="handleMouseDown"
+            @mouseup.native="handleMouseUp"
+          >
+            <el-select
+              v-model="selectDataId"
+              placeholder="请选择"
+              style="width: 400px"
+            >
+              <el-option
+                v-for="dataId in dataIdList"
+                :key="dataId"
+                :label="dataId"
+                :value="dataId"
+              >
+              </el-option>
+            </el-select>
+          </el-form-item>
+
+          <el-form-item>
+            <el-button type="primary" @click="exportFile">导出</el-button>
+          </el-form-item>
+        </el-form>
+
+        <el-dialog title="添加数据项" :visible.sync="addItemDialogVisible">
+          <el-form :model="dataItem">
+            <el-form-item label="数据项名称">
+              <el-input v-model="dataItem.dataId" autocomplete="off"></el-input>
+            </el-form-item>
+            <el-form-item label="查询sql语句">
+              <el-input
+                v-model="dataItem.dataSql"
+                type="textarea"
+                autocomplete="off"
+              ></el-input>
+            </el-form-item>
+          </el-form>
+          <div slot="footer" class="dialog-footer">
+            <el-button @click="addItemDialogVisible = false">取 消</el-button>
+            <el-button type="primary" @click="addItem">确 定</el-button>
+          </div>
+        </el-dialog>
+
+        <el-dialog title="数据库信息" :visible.sync="databaseDialogVisible">
+          <el-form :model="databaseInfo">
+            <el-form-item label="主 机">
+              <el-input v-model="databaseInfo.ip" autocomplete="off"></el-input>
+            </el-form-item>
+            <el-form-item label="端 口">
+              <el-input
+                v-model="databaseInfo.port"
+                autocomplete="off"
+              ></el-input>
+            </el-form-item>
+            <el-form-item label="数据库">
+              <el-input
+                v-model="databaseInfo.name"
+                autocomplete="off"
+              ></el-input>
+            </el-form-item>
+            <el-form-item label="用户名">
+              <el-input
+                v-model="databaseInfo.username"
+                autocomplete="off"
+              ></el-input>
+            </el-form-item>
+            <el-form-item label="密 码">
+              <el-input
+                v-model="databaseInfo.password"
+                autocomplete="off"
+              ></el-input>
+            </el-form-item>
+          </el-form>
+          <div slot="footer" class="dialog-footer">
+            <el-button @click="databaseDialogVisible = false">取 消</el-button>
+            <el-button type="primary" @click="saveDatabaseInfo"
+              >确 定</el-button
+            >
+          </div>
+        </el-dialog>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      new Vue({
+        el: "#app",
+        data: {
+          dataIdList: [],
+          selectDataId: "",
+          addItemDialogVisible: false,
+          dataItem: {
+            dataId: "",
+            dataSql: "",
+          },
+          databaseInfo: {
+            ip: "",
+            port: "",
+            username: "",
+            password: "",
+            name: "",
+          },
+          databaseDialogVisible: false,
+          addItemDialogVisible: false,
+          delItemPressTimeout: undefined,
+          delItemPressing: false,
+          modDBInfoPressTimeout: undefined,
+          modDBInfoPressing: false,
+        },
+        mounted() {
+          this.queryDataIds();
+        },
+        methods: {
+          queryDataIds() {
+            axios.get("/world-peace/getDataIdList").then((response) => {
+              this.dataIdList = response.data;
+            });
+          },
+          exportFile() {
+            axios({
+              url: "/world-peace/exportExcel",
+              method: "POST",
+              responseType: "blob",
+              data: { dataId: this.selectDataId },
+            })
+              .then((response) => {
+                // 处理响应数据
+                const fileData = response.data;
+                const fileName = this.selectDataId + ".xlsx"; // 你可以根据需要自定义文件名
+
+                // 创建一个Blob对象，以便将二进制数据转换为可下载的文件
+                const blob = new Blob([fileData], {
+                  type: "application/vnd.ms-excel",
+                });
+
+                // 创建一个用于下载文件的链接元素
+                const downloadLink = document.createElement("a");
+                downloadLink.href = URL.createObjectURL(blob);
+                downloadLink.download = fileName;
+                downloadLink.style.display = "none";
+
+                // 将链接元素添加到DOM中，并模拟点击下载操作
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+
+                // 清理：从DOM中移除链接元素，并释放URL对象
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(downloadLink.href);
+              })
+              .catch((error) => {
+                console.error("文件下载失败:", error);
+              });
+          },
+          showAddItemDialog() {
+            this.addItemDialogVisible = true;
+          },
+          addItem() {
+            if (this.dataItem.dataId === "" || this.dataItem.dataSql === "") {
+              return;
+            }
+            axios
+              .post("/world-peace/addDataItem", {
+                dataId: this.dataItem.dataId,
+                dataSql: Base64.encode(this.dataItem.dataSql),
+              })
+              .then((res) => {
+                this.$message.success("添加成功");
+                this.dataItem = {};
+                this.addItemDialogVisible = false;
+                this.queryDataIds();
+              })
+              .catch((err) => {
+                this.$message.error("添加失败");
+              });
+          },
+          delItem() {
+            if (this.selectDataId === "") {
+              this.$message.warning("请先选择数据项");
+              return;
+            }
+            this.$confirm("此操作将删除该数据项，是否继续？", "提示", {
+              confirmButtonText: "确定",
+              cancelButtonText: "取消",
+              type: "warning",
+            })
+              .then(() => {
+                axios
+                  .post("/world-peace/delDataItem", {
+                    dataId: this.selectDataId,
+                  })
+                  .then((res) => {
+                    this.$message.success("删除成功");
+                    this.selectDataId = "";
+                    this.queryDataIds();
+                  })
+                  .catch((err) => {
+                    this.$message.error("删除失败");
+                  });
+              })
+              .catch(() => {
+                this.$message.info("已取消删除");
+              });
+          },
+          handleMouseDown() {
+            // 当鼠标按下时，设置一个定时器，在一定时间内判断是否触发了长按事件
+            this.delItemPressTimeout = setTimeout(() => {
+              this.delItemPressing = false;
+              if (this.delItemPressing === false) {
+                // 在这里可以执行长按事件的相关逻辑
+              }
+            }, 1500); // 设置长按时间阈值，单位毫秒
+            this.modDBInfoPressTimeout = setTimeout(() => {
+              this.modDBInfoPressing = false;
+              if (this.modDBInfoPressing === false) {
+                // 在这里可以执行长按事件的相关逻辑
+              }
+            }, 5000); // 设置长按时间阈值，单位毫秒
+            this.delItemPressing = true;
+            this.modDBInfoPressing = true;
+          },
+          // 鼠标抬起时，取消长按事件
+          handleMouseUp() {
+            clearTimeout(this.delItemPressTimeout);
+            clearTimeout(this.modDBInfoPressTimeout);
+            if (this.modDBInfoPressing === true) {
+              // 在这里可以执行鼠标抬起事件由点击触发时的逻辑
+            } else if (this.modDBInfoPressing === false) {
+              // 在这里可以执行鼠标抬起事件由长按触发时的逻辑
+              this.queryDatabaseInfo();
+              this.databaseDialogVisible = true;
+              return
+            }
+            if (this.delItemPressing === true) {
+              // 在这里可以执行鼠标抬起事件由点击触发时的逻辑
+            } else if (this.delItemPressing === false) {
+              // 在这里可以执行鼠标抬起事件由长按触发时的逻辑
+              this.delItem();
+            }
+          },
+          queryDatabaseInfo() {
+            axios.post("/world-peace/getDatabaseInfo").then((response) => {
+              this.databaseInfo = response.data;
+            });
+          },
+          saveDatabaseInfo() {
+            axios
+              .post("/world-peace/saveDatabaseInfo", this.databaseInfo)
+              .then((res) => {
+                this.$message.success("修改成功");
+                this.databaseDialogVisible = false;
+              })
+              .catch((err) => {
+                this.$message.error("修改失败");
+              });
+          },
+        },
+      });
+    </script>
+    <style>
+      html {
+        height: 100%;
+      }
+      body {
+        min-height: 100%;
+        display: flex;
+      }
+      #app {
+        flex: 1 1 100%;
+        min-height: 100%;
+      }
+      .container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100%;
+      }
+    </style>
+  </body>
+</html>
