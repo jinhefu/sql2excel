@@ -33,7 +33,9 @@ def getDatabaseData(sql):
             print("PostgreSQL connection is closed")
 
 
-app = Flask(__name__, template_folder='./templates')
+app = Flask(__name__,
+            template_folder='./templates',
+            static_folder='./world-peace')
 
 
 @app.route('/world-peace/index', methods=['GET'])

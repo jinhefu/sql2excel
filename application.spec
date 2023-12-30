@@ -5,7 +5,7 @@ a = Analysis(
     ['application.py'],
     pathex=[],
     binaries=[],
-    datas=[('custom_config.ini','.'),('./static','./static'),('./templates','./templates')],
+    datas=[('custom_config.ini','.'),('./world-peace','./world-peace'),('./templates','./templates')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
