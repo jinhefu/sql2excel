@@ -5,6 +5,7 @@ import pandas as pd
 import configparser
 import datetime
 import base64
+import os
 
 config = configparser.RawConfigParser()
 config.read('./custom_config.ini', 'utf-8')
@@ -49,11 +50,13 @@ def exportExcel():
         dataId = request.get_json().get('dataId')
         sql = config.get('data.sql', dataId)
         df = getDatabaseData(sql)
+        currentDir = os.path.dirname(os.path.abspath(__file__)) 
         # 将DataFrame对象导出为Excel文件
         fileName = dataId + datetime.datetime.now().strftime(
             '%Y%m%d-%H%M%S') + '.xlsx'
-        df.to_excel(fileName, index=False, engine='openpyxl')
-        return send_file(fileName, as_attachment=True)
+        filePath = os.path.join(currentDir, fileName)
+        df.to_excel(filePath, index=False, engine='openpyxl')
+        return send_file(filePath, as_attachment=True)
     except (Exception) as error:
         print("Error while exporting", error)
 
